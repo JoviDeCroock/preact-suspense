@@ -2,6 +2,10 @@
 
 A lightweight Suspense implementation for [Preact](https://preactjs.com/), inspired by [preact-iso](https://github.com/preactjs/preact-iso).
 
+> [!NOTE]
+> Do not use this together with `preact/compat` - use the native
+> `Suspense` there.
+
 ## Features
 
 - **Fallback rendering** — when a child throws a promise, renders a `fallback` (or nothing if omitted)

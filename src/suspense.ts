@@ -70,7 +70,6 @@ const oldCatchError = (options as any).__e;
  */
 export class Suspense extends Component<SuspenseProps, SuspenseState> {
   private _pendingCount = 0;
-  private _detach: InternalVNode | null = null;
 
   constructor(props: SuspenseProps) {
     super(props);
@@ -93,7 +92,6 @@ export class Suspense extends Component<SuspenseProps, SuspenseState> {
       c._pendingCount--;
       if (c._pendingCount <= 0) {
         c._pendingCount = 0;
-        c._detach = null;
         c.setState({ suspended: false });
       }
     };
@@ -104,10 +102,6 @@ export class Suspense extends Component<SuspenseProps, SuspenseState> {
     // server-rendered HTML alive until the promise resolves.
     if (!isHydrating) {
       // Detach / park the current children vnode so we can show fallback
-      const selfVNode = (this as unknown as InternalComponent).__v;
-      if (selfVNode && selfVNode.__k && selfVNode.__k[0]) {
-        c._detach = selfVNode.__k[0];
-      }
       c.setState({ suspended: true });
     }
 
