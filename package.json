@@ -1,0 +1,56 @@
+{
+  "name": "preact-suspense",
+  "type": "module",
+  "author": "Jovi De Croock <jovi@resynapse.dev>",
+  "version": "0.0.0",
+  "description": "Render Preact components in Vitest Browser Mode",
+  "license": "MIT",
+  "homepage": "https://github.com/JoviDeCroock/preact-suspense#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoviDeCroock/preact-suspense.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JoviDeCroock/preact-suspense/issues"
+  },
+  "keywords": [
+    "preact",
+    "vitest"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": "^18.0.0 || >=20.0.0"
+  },
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown src/index.ts --out dist --format cjs,esm --dts",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "preact": "^10.0.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.3",
+    "@vitest/browser-playwright": "^4.0.18",
+    "preact": "^10.28.3",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "vitest-browser-preact": "^1.0.0"
+  }
+}
