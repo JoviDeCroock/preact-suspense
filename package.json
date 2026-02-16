@@ -2,7 +2,7 @@
   "name": "preact-suspense",
   "type": "module",
   "author": "Jovi De Croock <jovi@resynapse.dev>",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Use Suspense in Preact with ease.",
   "license": "MIT",
   "homepage": "https://github.com/JoviDeCroock/preact-suspense#readme",
