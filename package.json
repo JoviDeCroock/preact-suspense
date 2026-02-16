@@ -35,7 +35,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsdown src/index.ts --out dist --format cjs,esm --dts",
+    "build": "tsdown src/index.ts",
     "test": "vitest run",
     "changeset": "changeset",
     "version": "changeset version",
