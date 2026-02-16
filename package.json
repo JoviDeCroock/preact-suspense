@@ -2,8 +2,8 @@
   "name": "preact-suspense",
   "type": "module",
   "author": "Jovi De Croock <jovi@resynapse.dev>",
-  "version": "0.0.0",
-  "description": "Render Preact components in Vitest Browser Mode",
+  "version": "0.1.0",
+  "description": "Use Suspense in Preact with ease.",
   "license": "MIT",
   "homepage": "https://github.com/JoviDeCroock/preact-suspense#readme",
   "repository": {
@@ -27,9 +27,6 @@
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "engines": {
-    "node": "^18.0.0 || >=20.0.0"
-  },
   "files": [
     "dist",
     "src",
@@ -42,7 +39,8 @@
     "test": "vitest run",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "release": "pnpm build && changeset publish",
+    "prepublishOnly": "pnpm build"
   },
   "peerDependencies": {
     "preact": "^10.0.0"
