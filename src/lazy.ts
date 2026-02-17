@@ -1,7 +1,6 @@
 import { createElement, options, type FunctionComponent } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 
-// Hook into options.__b (beforeDiff) to forward refs for lazy components
 const oldDiff = (options as any).__b;
 (options as any).__b = (vnode: any) => {
   if (vnode.type && vnode.type._forwarded && vnode.ref) {
@@ -43,7 +42,6 @@ export function lazy<T extends FunctionComponent<any>>(
       ref.current = undefined as any;
       promise.then(() => update(1));
     }
-    // Throw the promise so Suspense can catch it
     throw promise;
   };
 

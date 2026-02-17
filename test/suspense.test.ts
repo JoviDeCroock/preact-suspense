@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'vitest-browser-preact';
 import { createElement, options, hydrate as preactHydrate, render as preactRender } from 'preact';
+import { useEffect } from 'preact/hooks';
 import { Suspense } from '../src/suspense';
 import { lazy } from '../src/lazy';
 
@@ -33,7 +34,6 @@ function createSuspendingComponent(deferred: { promise: Promise<any>; resolve: F
   };
 }
 
-// ─── Basic Suspense ───────────────────────────────────────────────────────────
 
 describe('Suspense', () => {
   describe('basic rendering', () => {
@@ -62,7 +62,6 @@ describe('Suspense', () => {
         )
       );
 
-      // Should show fallback
       await expect.element(screen.getByTestId('fallback')).toBeVisible();
       await expect.element(screen.getByTestId('fallback')).toHaveTextContent('Loading...');
     });
@@ -79,10 +78,8 @@ describe('Suspense', () => {
         )
       );
 
-      // The wrapper should exist but be empty (no fallback, no children)
       await flush();
       expect(screen.container.querySelector('[data-testid="wrapper"]')).not.toBeNull();
-      // The resolved child should NOT be present
       expect(screen.container.querySelector('[data-testid="resolved"]')).toBeNull();
     });
 
@@ -96,20 +93,16 @@ describe('Suspense', () => {
         )
       );
 
-      // Initially: fallback
       await expect.element(screen.getByTestId('fallback')).toBeVisible();
 
-      // Resolve the promise
       d.resolve();
       await flush();
 
-      // After resolve: children
       await expect.element(screen.getByTestId('resolved')).toBeVisible();
       await expect.element(screen.getByTestId('resolved')).toHaveTextContent('Done!');
     });
   });
 
-  // ─── Lazy ───────────────────────────────────────────────────────────────────
 
   describe('lazy', () => {
     it('loads and renders a lazily-imported component', async () => {
@@ -123,10 +116,8 @@ describe('Suspense', () => {
         )
       );
 
-      // Fallback visible
       await expect.element(screen.getByTestId('fb')).toBeVisible();
 
-      // Resolve with a real component
       d.resolve({
         default: (props: any) => createElement('p', { 'data-testid': 'lazy-child' }, `Lazy: ${props.greeting}`)
       });
@@ -147,7 +138,6 @@ describe('Suspense', () => {
         )
       );
 
-      // Resolve with a bare component (no .default)
       d.resolve((props: any) => createElement('div', { 'data-testid': 'bare' }, 'Bare export'));
       await flush();
 
@@ -178,12 +168,10 @@ describe('Suspense', () => {
         )
       );
 
-      // Should render immediately without fallback since module is already loaded
       await expect.element(screen.getByTestId('preloaded')).toBeVisible();
     });
   });
 
-  // ─── Multiple Suspenders ────────────────────────────────────────────────────
 
   describe('multiple suspending children', () => {
     it('shows fallback until all children resolve', async () => {
@@ -201,23 +189,17 @@ describe('Suspense', () => {
 
       await expect.element(screen.getByTestId('multi-fb')).toBeVisible();
 
-      // Resolve first
       d1.resolve();
       await flush();
 
-      // Still in fallback because second hasn't resolved
-      // (The suspense boundary re-suspends when the second child throws again)
-      // Resolve second
       d2.resolve();
       await flush();
 
-      // Now both should be rendered
       await expect.element(screen.getByText('First')).toBeVisible();
       await expect.element(screen.getByText('Second')).toBeVisible();
     });
   });
 
-  // ─── Nested Suspense ────────────────────────────────────────────────────────
 
   describe('nested Suspense boundaries', () => {
     it('inner Suspense catches its own child, outer renders normally', async () => {
@@ -233,7 +215,6 @@ describe('Suspense', () => {
         )
       );
 
-      // Outer content visible, inner shows its own fallback
       await expect.element(screen.getByTestId('outer-child')).toBeVisible();
       await expect.element(screen.getByTestId('inner-fb')).toBeVisible();
 
@@ -265,7 +246,6 @@ describe('Suspense', () => {
     });
   });
 
-  // ─── Fallback variations ────────────────────────────────────────────────────
 
   describe('fallback variations', () => {
     it('supports JSX element as fallback', async () => {
@@ -316,7 +296,6 @@ describe('Suspense', () => {
     });
   });
 
-  // ─── Hydration ──────────────────────────────────────────────────────────────
 
   describe('hydration behavior', () => {
     let container: HTMLDivElement;
@@ -327,7 +306,6 @@ describe('Suspense', () => {
     });
 
     afterEach(() => {
-      // Unmount any Preact tree in the container, then remove it
       preactRender(null, container);
       container.remove();
     });
@@ -342,16 +320,13 @@ describe('Suspense', () => {
         return createElement('div', { 'data-testid': 'hydrated-child' }, 'Client content');
       }
 
-      // Simulate server-rendered HTML that matches the resolved component output
       container.innerHTML =
         '<div data-testid="hydrated-child">Server content</div>';
 
-      // Grab a reference to the SSR node before hydration
       const ssrNode = container.querySelector('[data-testid="hydrated-child"]')!;
       expect(ssrNode).not.toBeNull();
       expect(ssrNode.textContent).toBe('Server content');
 
-      // Hydrate over the existing HTML using Preact's real hydrate()
       preactHydrate(
         createElement(Suspense, {
           fallback: createElement('div', { 'data-testid': 'hydrate-fb' }, 'Loading...')
@@ -362,18 +337,14 @@ describe('Suspense', () => {
       );
       await flush();
 
-      // During hydration the fallback must NOT appear — the SSR HTML stays alive
       expect(container.querySelector('[data-testid="hydrate-fb"]')).toBeNull();
 
-      // The original server-rendered node should still be in the DOM
       expect(container.querySelector('[data-testid="hydrated-child"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="hydrated-child"]')!.textContent).toBe('Server content');
 
-      // Now resolve the promise
       d.resolve();
       await flush();
 
-      // After resolution the client content should take over
       expect(container.querySelector('[data-testid="hydrated-child"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="hydrated-child"]')!.textContent).toBe('Client content');
     });
@@ -383,7 +354,6 @@ describe('Suspense', () => {
 
       const LazyChild = lazy(() => d.promise);
 
-      // Server-rendered HTML
       container.innerHTML = '<p data-testid="lazy-ssr">SSR lazy content</p>';
 
       preactHydrate(
@@ -396,12 +366,9 @@ describe('Suspense', () => {
       );
       await flush();
 
-      // Fallback must NOT appear during hydration
       expect(container.querySelector('[data-testid="lazy-hydrate-fb"]')).toBeNull();
-      // SSR content should still be present
       expect(container.querySelector('[data-testid="lazy-ssr"]')!.textContent).toBe('SSR lazy content');
 
-      // Resolve the lazy module
       d.resolve({
         default: () => createElement('p', { 'data-testid': 'lazy-ssr' }, 'Client lazy content')
       });
@@ -414,7 +381,6 @@ describe('Suspense', () => {
       const d = deferred();
       const Suspending = createSuspendingComponent(d);
 
-      // Normal render (not hydrate) — should show fallback
       const screen = render(
         createElement(Suspense, {
           fallback: createElement('div', { 'data-testid': 'normal-fb' }, 'Normal fallback')
@@ -456,13 +422,10 @@ describe('Suspense', () => {
       );
       await flush();
 
-      // No fallback text should ever appear in the DOM
       expect(container.innerHTML).not.toContain('FALLBACK');
 
-      // The original SSR span should still be there
       expect(container.querySelector('span')!.textContent).toBe('Server ready');
 
-      // Resolve
       d.resolve();
       await flush();
 
@@ -471,7 +434,6 @@ describe('Suspense', () => {
     });
   });
 
-  // ─── Promise rejection ─────────────────────────────────────────────────────
 
   describe('promise rejection', () => {
     it('un-suspends when the promise rejects', async () => {
@@ -484,7 +446,6 @@ describe('Suspense', () => {
         () => { rejectedState = true; }
       );
 
-      // Create a component that suspends and then just renders after rejection
       function RejectableChild() {
         if (!resolvedState && !rejectedState) throw d.promise;
         return createElement('div', { 'data-testid': 'after-reject' }, rejectedState ? 'Rejected' : 'Resolved');
@@ -500,17 +461,14 @@ describe('Suspense', () => {
 
       await expect.element(screen.getByTestId('reject-fb')).toBeVisible();
 
-      // Reject the promise
       d.reject(new Error('Test error'));
       await flush();
 
-      // Should un-suspend (Suspense treats rejection same as resolution)
       await expect.element(screen.getByTestId('after-reject')).toBeVisible();
       await expect.element(screen.getByTestId('after-reject')).toHaveTextContent('Rejected');
     });
   });
 
-  // ─── Re-suspending ─────────────────────────────────────────────────────────
 
   describe('re-suspending', () => {
     it('can suspend, resolve, and suspend again', async () => {
@@ -534,28 +492,94 @@ describe('Suspense', () => {
         )
       );
 
-      // Phase 1: suspended
       await expect.element(screen.getByTestId('phased-fb')).toBeVisible();
 
-      // Resolve phase 1
       d1.resolve();
       await flush();
 
       await expect.element(screen.getByTestId('phased')).toBeVisible();
       await expect.element(screen.getByTestId('phased')).toHaveTextContent('Phase 1');
     });
+
+    it('stops running effects while child subtree is suspended', async () => {
+      vi.useFakeTimers();
+      const d = deferred();
+      const tick = vi.fn();
+      const cleanup = vi.fn();
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      let shouldSuspend = false;
+
+      function ChildWithEffect() {
+        useEffect(() => {
+          const id = setInterval(() => tick(), 20);
+          return () => {
+            clearInterval(id);
+            cleanup();
+          };
+        }, []);
+
+        if (shouldSuspend) throw d.promise;
+        return createElement('div', { 'data-testid': 'active-child' }, 'Active');
+      }
+
+      try {
+        preactRender(
+          createElement(Suspense, {
+            fallback: createElement('div', { 'data-testid': 'effect-fb' }, 'Loading...')
+          },
+            createElement(ChildWithEffect, null)
+          ),
+          container
+        );
+
+        await vi.advanceTimersByTimeAsync(80);
+        expect(tick.mock.calls.length).toBeGreaterThan(0);
+
+        shouldSuspend = true;
+        preactRender(
+          createElement(Suspense, {
+            fallback: createElement('div', { 'data-testid': 'effect-fb' }, 'Loading...')
+          },
+            createElement(ChildWithEffect, null)
+          ),
+          container
+        );
+
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(container.querySelector('[data-testid="effect-fb"]')).not.toBeNull();
+        expect(cleanup).toHaveBeenCalledTimes(1);
+
+        const callsWhileSuspended = tick.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(120);
+        expect(tick.mock.calls.length).toBe(callsWhileSuspended);
+
+        shouldSuspend = false;
+        d.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(container.querySelector('[data-testid="active-child"]')).not.toBeNull();
+        await vi.advanceTimersByTimeAsync(60);
+        expect(tick.mock.calls.length).toBeGreaterThan(callsWhileSuspended);
+        expect(cleanup).toHaveBeenCalledTimes(1);
+      } finally {
+        preactRender(null, container);
+        container.remove();
+        vi.useRealTimers();
+      }
+    });
   });
 
-  // ─── Synchronous resolution ─────────────────────────────────────────────────
 
   describe('already-resolved lazy', () => {
     it('renders immediately if the lazy module is already loaded', async () => {
       const Comp = (props: any) => createElement('div', { 'data-testid': 'instant' }, 'Instant');
       
-      // Pre-resolved promise
       const LazyComp = lazy(() => Promise.resolve({ default: Comp }));
       
-      // Preload so by render time it's already available
       await LazyComp.preload();
       await flush();
 
@@ -569,7 +593,6 @@ describe('Suspense', () => {
     });
   });
 
-  // ─── Complex fallback content ───────────────────────────────────────────────
 
   describe('complex scenarios', () => {
     it('supports complex fallback with multiple elements', async () => {
@@ -605,7 +628,6 @@ describe('Suspense', () => {
 
       await flush();
       expect(screen.container.querySelector('[data-testid="empty-wrapper"]')).not.toBeNull();
-      // Should not show fallback when there are no children
       expect(screen.container.querySelector('span')).toBeNull();
     });
 
@@ -622,7 +644,6 @@ describe('Suspense', () => {
         )
       );
 
-      // Initially: fallback (whole subtree is suspended)
       await expect.element(screen.getByTestId('sibling-fb')).toBeVisible();
 
       d.resolve({
@@ -630,7 +651,6 @@ describe('Suspense', () => {
       });
       await flush();
 
-      // Both should be visible
       await expect.element(screen.getByTestId('sibling')).toBeVisible();
       await expect.element(screen.getByTestId('lazy-sib')).toBeVisible();
     });
