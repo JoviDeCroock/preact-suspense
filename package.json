@@ -1,6 +1,7 @@
 {
   "name": "preact-suspense",
   "type": "module",
+  "sideEffects": false,
   "author": "Jovi De Croock <jovi@resynapse.dev>",
   "version": "0.2.0",
   "description": "Use Suspense in Preact with ease.",
@@ -50,6 +51,7 @@
     "@changesets/cli": "^2.29.8",
     "@preact/preset-vite": "^2.10.3",
     "@vitest/browser-playwright": "^4.0.18",
+    "playwright": "1.58.2",
     "preact": "^10.28.3",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",

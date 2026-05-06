@@ -1,14 +1,20 @@
 import { createElement, options, type FunctionComponent } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 
-const oldDiff = (options as any).__b;
-(options as any).__b = (vnode: any) => {
-  if (vnode.type && vnode.type._forwarded && vnode.ref) {
-    vnode.props.ref = vnode.ref;
-    vnode.ref = null;
-  }
-  if (oldDiff) oldDiff(vnode);
-};
+let diffHookInstalled = false;
+function installDiffHook() {
+  if (diffHookInstalled) return;
+  diffHookInstalled = true;
+
+  const oldDiff = (options as any).__b;
+  (options as any).__b = (vnode: any) => {
+    if (vnode.type && vnode.type._forwarded && vnode.ref) {
+      vnode.props.ref = vnode.ref;
+      vnode.ref = null;
+    }
+    if (oldDiff) oldDiff(vnode);
+  };
+}
 
 /**
  * Create a lazily-loaded component. The `load` function should return
@@ -23,6 +29,8 @@ const oldDiff = (options as any).__b;
 export function lazy<T extends FunctionComponent<any>>(
   load: () => Promise<{ default: T } | T>
 ): T & { preload: () => Promise<T> } {
+  installDiffHook();
+
   let promise: Promise<T> | undefined;
   let component: T | undefined;
 
