@@ -26,33 +26,40 @@ interface SuspenseState {
   suspended: boolean;
 }
 
-const oldCatchError = (options as any).__e;
-(options as any).__e = function (
-  err: any,
-  newVNode: InternalVNode,
-  oldVNode: InternalVNode,
-  errorInfo?: any
-) {
-  if (err && err.then) {
-    let v: InternalVNode | undefined = newVNode;
-    while ((v = v!.__)) {
-      if (v.__c && (v.__c as any).__c) {
-        if (newVNode.__e == null) {
-          newVNode.__e = oldVNode.__e;
-          newVNode.__k = oldVNode.__k;
+let catchErrorInstalled = false;
+function installCatchErrorHook() {
+  if (catchErrorInstalled) return;
+  catchErrorInstalled = true;
+
+  const oldCatchError = (options as any).__e;
+  (options as any).__e = function (
+    err: any,
+    newVNode: InternalVNode,
+    oldVNode: InternalVNode,
+    errorInfo?: any
+  ) {
+    if (err && err.then) {
+      let v: InternalVNode | undefined = newVNode;
+      while ((v = v!.__)) {
+        if (v.__c && (v.__c as any).__c) {
+          if (newVNode.__e == null) {
+            newVNode.__e = oldVNode.__e;
+            newVNode.__k = oldVNode.__k;
+          }
+          return (v.__c as any).__c(err, newVNode);
         }
-        return (v.__c as any).__c(err, newVNode);
       }
     }
-  }
-  if (oldCatchError) oldCatchError(err, newVNode, oldVNode, errorInfo);
-};
+    if (oldCatchError) oldCatchError(err, newVNode, oldVNode, errorInfo);
+  };
+}
 
 export class Suspense extends Component<SuspenseProps, SuspenseState> {
   private _pendingCount = 0;
 
   constructor(props: SuspenseProps) {
     super(props);
+    installCatchErrorHook();
     this.state = { suspended: false };
   }
 
