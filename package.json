@@ -44,7 +44,7 @@
     "prepublishOnly": "pnpm build"
   },
   "peerDependencies": {
-    "preact": "^10.0.0"
+    "preact": "^10.0.0 || ^11.0.0-0"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.2",
