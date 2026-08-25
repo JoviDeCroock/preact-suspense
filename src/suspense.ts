@@ -94,12 +94,21 @@ export class Suspense extends Component<SuspenseProps, SuspenseState> {
     const { children, fallback } = this.props;
     const { suspended } = this.state;
 
+    // Both branches are returned inside an array rather than as a bare
+    // Fragment. preact-render-to-string unwraps a single keyless Fragment
+    // (`rendered.type === Fragment && rendered.key == null && !rendered.props.tpl`),
+    // which would collapse this component's output into its children and make a
+    // suspending child's promise surface in *this* frame. The streaming
+    // renderer's boundary walk starts at the parent of the frame that threw, so
+    // it would step straight over this boundary, find nothing, and rethrow as
+    // `Use "renderToStringAsync" for suspenseful rendering.` The array keeps the
+    // boundary a distinct frame. It makes no difference to DOM rendering.
     if (suspended) {
       return fallback != null
-        ? createElement(Fragment, null, fallback)
+        ? [createElement(Fragment, null, fallback)]
         : null;
     }
 
-    return createElement(Fragment, null, children);
+    return [createElement(Fragment, null, children)];
   }
 }
