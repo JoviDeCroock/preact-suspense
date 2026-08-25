@@ -53,6 +53,7 @@
     "@vitest/browser-playwright": "^4.0.18",
     "playwright": "1.58.2",
     "preact": "^10.28.3",
+    "preact-render-to-string": "^6.7.0",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
