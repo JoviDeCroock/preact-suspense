@@ -550,6 +550,9 @@ describe('Suspense', () => {
         await Promise.resolve();
         await Promise.resolve();
         expect(container.querySelector('[data-testid="effect-fb"]')).not.toBeNull();
+        // Preact 11 runs passive effect cleanups of unmounted components after
+        // paint (like React), Preact 10 runs them synchronously.
+        await vi.advanceTimersByTimeAsync(50);
         expect(cleanup).toHaveBeenCalledTimes(1);
 
         const callsWhileSuspended = tick.mock.calls.length;
