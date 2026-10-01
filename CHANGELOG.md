@@ -1,5 +1,15 @@
 # preact-suspense
 
+## 0.3.1
+
+### Patch Changes
+
+- [`871d9ef`](https://github.com/JoviDeCroock/preact-suspense/commit/871d9efd20bec0b02bbab72b37e5fe4d5c42e14e) Thanks [@JoviDeCroock](https://github.com/JoviDeCroock)! - Render new children passed to a `Suspense` boundary while it shows its fallback, instead of waiting for the promise of a child that is no longer rendered. The fallback stays mounted until the new children render or suspend themselves.
+
+- [`8adca7f`](https://github.com/JoviDeCroock/preact-suspense/commit/8adca7ff39d6b529fae7c40cc1efba5e297b6913) Thanks [@JoviDeCroock](https://github.com/JoviDeCroock)! - Don't run effects queued by a render that suspended before the component ever committed. During hydration such a component stays mounted while it waits, and those effects used to run before its data was ready.
+
+- [#4](https://github.com/JoviDeCroock/preact-suspense/pull/4) [`dab0d8c`](https://github.com/JoviDeCroock/preact-suspense/commit/dab0d8cf828e5cd109b85aefecf6e647ba4789f6) Thanks [@JoviDeCroock](https://github.com/JoviDeCroock)! - Allow installing preact-suspense with Preact 11, including prerelease versions.
+
 ## 0.3.0
 
 ### Minor Changes
