@@ -333,14 +333,14 @@ describe('known differences from preact/compat Suspense', () => {
     await flush();
     expect(container.textContent).toBe('count:5ready');
   });
+});
 
-  // The fallback stays until the original promise settles, even when the child that
-  // suspended is gone. preact/compat behaves the same; React renders the new children.
-  it.fails('renders new children when the suspended child is replaced', async () => {
-    const never = new Promise<void>(() => {});
-    const Forever = () => {
-      throw never;
-    };
+describe('new children while suspended', () => {
+  const Forever = () => {
+    throw new Promise<void>(() => {});
+  };
+
+  it('renders new children when the suspended child is replaced', async () => {
     const container = scratch();
     render(h(Suspense, { fallback: 'loading' }, h(Forever, null)), container);
     await flush();
@@ -348,6 +348,74 @@ describe('known differences from preact/compat Suspense', () => {
 
     render(h(Suspense, { fallback: 'loading' }, h('b', null, 'replaced')), container);
     await flush();
-    expect(container.textContent).toBe('replaced');
+    expect(container.innerHTML).toBe('<b>replaced</b>');
+  });
+
+  it('keeps the fallback mounted while new children suspend too', async () => {
+    const container = scratch();
+    const fallback = h('p', null, 'loading');
+    render(h(Suspense, { fallback }, h(Forever, null)), container);
+    await flush();
+    const fallbackNode = container.querySelector('p');
+    expect(fallbackNode).not.toBeNull();
+
+    const d = deferred();
+    let ready = false;
+    d.promise.then(() => {
+      ready = true;
+    });
+    const Next = () => {
+      if (!ready) throw d.promise;
+      return h('b', null, 'next');
+    };
+    render(h(Suspense, { fallback }, h(Next, null)), container);
+    await flush();
+    expect(container.innerHTML).toBe('<p>loading</p>');
+    expect(container.querySelector('p')).toBe(fallbackNode);
+
+    d.resolve();
+    await flush();
+    expect(container.innerHTML).toBe('<b>next</b>');
+  });
+
+  it('ignores the promise of a replaced child', async () => {
+    const first = deferred();
+    const Pending = () => {
+      throw first.promise;
+    };
+    const second = deferred();
+    let secondReady = false;
+    second.promise.then(() => {
+      secondReady = true;
+    });
+    const Next = () => {
+      if (!secondReady) throw second.promise;
+      return h('b', null, 'next');
+    };
+
+    const container = scratch();
+    render(h(Suspense, { fallback: 'loading' }, h(Pending, null)), container);
+    await flush();
+    render(h(Suspense, { fallback: 'loading' }, h(Next, null)), container);
+    await flush();
+
+    // The replaced child's promise settling must not end the new suspension.
+    first.resolve();
+    await flush();
+    expect(container.textContent).toBe('loading');
+
+    second.resolve();
+    await flush();
+    expect(container.innerHTML).toBe('<b>next</b>');
+  });
+
+  it('keeps showing the fallback when re-rendered with the same children', async () => {
+    const container = scratch();
+    const children = h(Forever, null);
+    render(h(Suspense, { fallback: 'loading' }, children), container);
+    await flush();
+    render(h(Suspense, { fallback: 'loading' }, children), container);
+    await flush();
+    expect(container.innerHTML).toBe('loading');
   });
 });

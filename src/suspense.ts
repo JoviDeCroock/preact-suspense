@@ -63,6 +63,12 @@ function installCatchErrorHook() {
 
 export class Suspense extends Component<SuspenseProps, SuspenseState> {
   private _pendingCount = 0;
+  // Bumped when the boundary stops waiting on the promises it has seen so far.
+  private _generation = 0;
+  // The children that suspended. Different children are rendered again.
+  private _suspendedChildren: ComponentChildren = undefined;
+  private _retrying = false;
+  private _suspendedWhileRetrying = false;
 
   constructor(props: SuspenseProps) {
     super(props);
@@ -75,10 +81,11 @@ export class Suspense extends Component<SuspenseProps, SuspenseState> {
     const isHydrating =
       !!(suspendingVNode.__u && (suspendingVNode.__u & MODE_HYDRATE)) ||
       !!suspendingVNode.__h;
+    const generation = c._generation;
 
     let resolved = false;
     const onResolved = () => {
-      if (resolved) return;
+      if (resolved || generation !== c._generation) return;
       resolved = true;
 
       c._pendingCount--;
@@ -89,24 +96,41 @@ export class Suspense extends Component<SuspenseProps, SuspenseState> {
     };
 
     c._pendingCount++;
+    if (c._retrying) c._suspendedWhileRetrying = true;
 
     if (!isHydrating) {
+      c._suspendedChildren = c.props.children;
       c.setState({ suspended: true });
     }
 
     promise.then(onResolved, onResolved);
   }
 
+  componentDidUpdate() {
+    if (this._retrying) {
+      this._retrying = false;
+      if (!this._suspendedWhileRetrying) this.setState({ suspended: false });
+    }
+  }
+
   render() {
     const { children, fallback } = this.props;
     const { suspended } = this.state;
 
-    if (suspended) {
-      return fallback != null
-        ? createElement(Fragment, null, fallback)
-        : null;
+    // New children arrived while the fallback is showing, e.g. because the
+    // child that suspended was replaced: try to render them instead of waiting
+    // on the old promises. The fallback stays until they render or suspend.
+    if (suspended && children !== this._suspendedChildren) {
+      this._generation++;
+      this._pendingCount = 0;
+      this._suspendedChildren = children;
+      this._retrying = true;
+      this._suspendedWhileRetrying = false;
     }
 
-    return createElement(Fragment, null, children);
+    return [
+      createElement(Fragment, null, suspended && !this._retrying ? null : children),
+      suspended && fallback != null ? createElement(Fragment, null, fallback) : null,
+    ];
   }
 }
