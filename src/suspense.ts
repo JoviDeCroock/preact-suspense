@@ -42,6 +42,13 @@ function installCatchErrorHook() {
       let v: InternalVNode | undefined = newVNode;
       while ((v = v!.__)) {
         if (v.__c && (v.__c as any).__c) {
+          // A component that suspends before it ever committed has no state
+          // worth keeping. Dropping its hooks (`__H`) also drops the effects
+          // its aborted render queued, which would otherwise run while it is
+          // still suspended during hydration.
+          if (oldVNode && !oldVNode.__c && newVNode.__c) {
+            (newVNode.__c as any).__H = undefined;
+          }
           if (newVNode.__e == null) {
             newVNode.__e = oldVNode.__e;
             newVNode.__k = oldVNode.__k;

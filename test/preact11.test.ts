@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { Component, createElement as h, Fragment, hydrate, render } from 'preact';
-import { useId, useState } from 'preact/hooks';
+import { useEffect, useId, useState } from 'preact/hooks';
 import { renderToStringAsync } from 'preact-render-to-string';
 import { Suspense } from '../src/suspense';
 import { lazy } from '../src/lazy';
@@ -221,6 +221,63 @@ describe('resumed hydration', () => {
     again.resolve();
     await flush();
     expect(markup(container)).toBe('<b>lazy</b>');
+  });
+});
+
+describe('effects of components that suspend', () => {
+  it('does not run effects of a render that suspended during hydration', async () => {
+    const log: Array<string> = [];
+    const d = deferred();
+    let ready = false;
+    d.promise.then(() => {
+      ready = true;
+    });
+    const Data = () => {
+      useEffect(() => {
+        log.push(`effect (dom: ${document.querySelector('[data-hydrated]') ? 'hydrated' : 'pending'})`);
+        return () => log.push('cleanup');
+      }, []);
+      if (!ready) throw d.promise;
+      return h('b', { 'data-hydrated': true }, 'data');
+    };
+    const app = h('div', null, h(Suspense, { fallback: 'loading' }, h(Data, null)));
+
+    ready = true;
+    const html = await renderToStringAsync(app);
+    ready = false;
+
+    const container = scratch(html.replace(' data-hydrated', ''));
+    hydrate(app, container);
+    await flush(50);
+    expect(log).toEqual([]);
+
+    d.resolve();
+    await flush(50);
+    expect(log).toEqual(['effect (dom: hydrated)']);
+  });
+
+  it('runs effects once after a client-side suspension on mount', async () => {
+    const log: Array<string> = [];
+    const d = deferred();
+    let ready = false;
+    d.promise.then(() => {
+      ready = true;
+    });
+    const Data = () => {
+      useEffect(() => {
+        log.push('effect');
+        return () => log.push('cleanup');
+      }, []);
+      if (!ready) throw d.promise;
+      return h('b', null, 'data');
+    };
+    const container = scratch();
+    render(h(Suspense, { fallback: 'loading' }, h(Data, null)), container);
+    await flush(50);
+    d.resolve();
+    await flush(50);
+    expect(container.textContent).toBe('data');
+    expect(log).toEqual(['effect']);
   });
 });
 
