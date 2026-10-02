@@ -114,13 +114,13 @@ Creates a lazily-loaded component.
 |-----------|------|-------------|
 | `load` | `() => Promise<{ default: T } \| T>` | A function returning a promise that resolves to a component (or module with a `default` export). |
 
-**Returns:** The lazy component, with a `.preload()` method to start loading before render.
+**Returns:** The lazy component, with a `.preload()` method to start loading before render. If `load` rejects, rendering the component throws the error to the nearest error boundary.
 
 ## How it works
 
 1. Hooks into Preact's `options.__e` (error/catch handler) to intercept thrown promises
 2. Walks up the vnode tree to find the nearest `Suspense` boundary
-3. In **normal rendering**: switches to the fallback and re-renders children once the promise settles
+3. In **normal rendering**: switches to the fallback and re-renders children once the promise settles. On Preact 11, children that were already mounted are parked while the fallback shows and keep their state and DOM; their effects are cleaned up and run again when they are revealed
 4. In **hydration mode**: skips the fallback so existing DOM stays alive, then re-renders on resolution
 
 ## License

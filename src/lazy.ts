@@ -33,30 +33,38 @@ export function lazy<T extends FunctionComponent<any>>(
 
   let promise: Promise<T> | undefined;
   let component: T | undefined;
+  let error: unknown;
+  let failed = false;
 
-  const loadModule = (): Promise<T> =>
-    load().then((m: any) => {
-      component = (m && m.default) || m;
-      return component!;
-    });
+  const loadModule = (): Promise<T> => {
+    if (!promise) {
+      promise = load().then((m: any) => (component = (m && m.default) || m));
+      // Record a failed load so it is thrown to the nearest error boundary
+      // instead of retrying the same rejected promise from `<Suspense>`.
+      promise.then(undefined, (e) => {
+        error = e;
+        failed = true;
+      });
+    }
+    return promise;
+  };
 
   const LazyComponent: FunctionComponent<any> = (props) => {
     const [, update] = useState(0);
-    const ref = useRef(component);
+    const ref = useRef(false);
 
-    if (!promise) promise = loadModule();
+    const promise = loadModule();
+    if (failed) throw error;
     if (component !== undefined) return createElement(component, props);
     if (!ref.current) {
-      ref.current = undefined as any;
-      promise.then(() => update(1));
+      ref.current = true;
+      const rerender = () => update(1);
+      promise.then(rerender, rerender);
     }
     throw promise;
   };
 
-  (LazyComponent as any).preload = () => {
-    if (!promise) promise = loadModule();
-    return promise;
-  };
+  (LazyComponent as any).preload = loadModule;
 
   (LazyComponent as any)._forwarded = true;
   LazyComponent.displayName = 'Lazy';

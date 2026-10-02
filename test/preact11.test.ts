@@ -282,6 +282,64 @@ describe('effects of components that suspend', () => {
 });
 
 describe('lazy', () => {
+  it('throws a failed load to the nearest error boundary', async () => {
+    class Boundary extends Component<{ children?: any }, { error?: Error }> {
+      state: { error?: Error } = {};
+      static getDerivedStateFromError(error: Error) {
+        return { error };
+      }
+      render() {
+        return this.state.error ? h('p', null, `error:${this.state.error.message}`) : this.props.children;
+      }
+    }
+    const d = deferred<{ default: any }>();
+    let loads = 0;
+    const Lazy = lazy(() => {
+      loads++;
+      return d.promise;
+    });
+    const unhandled: Array<unknown> = [];
+    const onUnhandled = (event: PromiseRejectionEvent) => {
+      event.preventDefault();
+      unhandled.push(event.reason);
+    };
+    window.addEventListener('unhandledrejection', onUnhandled);
+
+    try {
+      const container = scratch();
+      render(h(Boundary, null, h(Suspense, { fallback: 'loading' }, h(Lazy, null))), container);
+      await flush();
+      expect(container.textContent).toBe('loading');
+
+      d.reject(new Error('chunk failed'));
+      await flush(50);
+      expect(container.innerHTML).toBe('<p>error:chunk failed</p>');
+      expect(loads).toBe(1);
+      expect(unhandled).toEqual([]);
+    } finally {
+      window.removeEventListener('unhandledrejection', onUnhandled);
+    }
+  });
+
+  it('throws a failed load when rendered after the failure', async () => {
+    class Boundary extends Component<{ children?: any }, { error?: Error }> {
+      state: { error?: Error } = {};
+      static getDerivedStateFromError(error: Error) {
+        return { error };
+      }
+      render() {
+        return this.state.error ? 'error' : this.props.children;
+      }
+    }
+    const Lazy = lazy(() => Promise.reject(new Error('chunk failed')));
+    await Lazy.preload().catch(() => {});
+
+    const container = scratch();
+    render(h(Boundary, null, h(Suspense, { fallback: 'loading' }, h(Lazy, null))), container);
+    await flush();
+    expect(container.textContent).toBe('error');
+  });
+
   it('passes a ref prop through to a lazily loaded function component', async () => {
     const Input = ({ ref }: { ref?: any }) => h('input', { ref });
     const { Lazy, resolve } = controlledLazy(Input);
@@ -294,10 +352,8 @@ describe('lazy', () => {
   });
 });
 
-describe('known differences from preact/compat Suspense', () => {
-  // The subtree is unmounted while the fallback shows, so state below the boundary is
-  // reset. preact/compat parks the suspended subtree in a detached DOM node instead.
-  it.fails('preserves state of mounted siblings when a child re-suspends', async () => {
+describe('re-suspending', () => {
+  it('preserves state of mounted siblings when a child re-suspends', async () => {
     let setCount!: (n: number) => void;
     const Counter = () => {
       const [count, set] = useState(0);
@@ -332,6 +388,192 @@ describe('known differences from preact/compat Suspense', () => {
     d.resolve();
     await flush();
     expect(container.textContent).toBe('count:5ready');
+  });
+
+  /** Renders `children` plus a `<Suspend>` that throws while `suspend()` is pending. */
+  function setup(children: (Suspend: any) => any) {
+    let pending: Promise<void> | null = null;
+    const Suspend = () => {
+      if (pending) throw pending;
+      return h('b', null, 'ready');
+    };
+    let setTick!: (n: number) => void;
+    const App = () => {
+      const [tick, set] = useState(0);
+      setTick = set;
+      return h(Suspense, { fallback: h('p', null, 'loading') }, children(h(Suspend, { tick })));
+    };
+    const container = scratch();
+    render(h(App, null), container);
+    return {
+      container,
+      async suspend() {
+        const d = deferred();
+        pending = d.promise;
+        setTick(Math.random());
+        await flush();
+        return async () => {
+          pending = null;
+          d.resolve();
+          await flush();
+        };
+      },
+    };
+  }
+
+  it('restores DOM nodes in order, including text and input values', async () => {
+    const { container, suspend } = setup((suspender) => [
+      'text',
+      h('input', null),
+      h(Fragment, null, h('i', null, 'a'), h('i', null, 'b')),
+      suspender,
+      h('u', null, 'last'),
+    ]);
+    const input = container.querySelector('input')!;
+    input.value = 'typed';
+    const before = container.innerHTML;
+
+    const resolve = await suspend();
+    expect(container.innerHTML).toBe('<p>loading</p>');
+    await resolve();
+
+    expect(container.innerHTML).toBe(before);
+    expect(container.querySelector('input')).toBe(input);
+    expect(input.value).toBe('typed');
+  });
+
+  it('detaches refs while parked and attaches them again on reveal', async () => {
+    const ref = { current: null as HTMLElement | null };
+    const { container, suspend } = setup((suspender) => [h('span', { ref }), suspender]);
+    const span = container.querySelector('span');
+    expect(ref.current).toBe(span);
+
+    const resolve = await suspend();
+    expect(ref.current).toBe(null);
+    await resolve();
+    expect(ref.current).toBe(span);
+  });
+
+  it('cleans up effects while parked and runs them again on reveal', async () => {
+    const log: Array<string> = [];
+    const Effects = () => {
+      useEffect(() => {
+        log.push('effect');
+        return () => log.push('cleanup');
+      }, []);
+      return null;
+    };
+    const { suspend } = setup((suspender) => [h(Effects, null), suspender]);
+    // Preact 11 runs passive effects after paint.
+    await flush(50);
+    expect(log).toEqual(['effect']);
+
+    const resolve = await suspend();
+    expect(log).toEqual(['effect', 'cleanup']);
+    await resolve();
+    await flush(50);
+    expect(log).toEqual(['effect', 'cleanup', 'effect']);
+  });
+
+  it('keeps updates made to parked components', async () => {
+    let setCount!: (n: number) => void;
+    const Counter = () => {
+      const [count, set] = useState(0);
+      setCount = set;
+      return h('span', null, `count:${count}`);
+    };
+    const { container, suspend } = setup((suspender) => [h(Counter, null), suspender]);
+
+    const resolve = await suspend();
+    setCount(3);
+    await flush();
+    expect(container.textContent).toBe('loading');
+    await resolve();
+    expect(container.textContent).toBe('count:3ready');
+  });
+
+  it('can suspend again after revealing parked children', async () => {
+    let setCount!: (n: number) => void;
+    const Counter = () => {
+      const [count, set] = useState(0);
+      setCount = set;
+      return h('span', null, `count:${count}`);
+    };
+    const { container, suspend } = setup((suspender) => [h(Counter, null), suspender]);
+    setCount(1);
+
+    await (await suspend())();
+    setCount(2);
+    await (await suspend())();
+    expect(container.textContent).toBe('count:2ready');
+  });
+
+  it('keeps state when the suspending child re-renders itself', async () => {
+    let setCount!: (n: number) => void;
+    const Counter = () => {
+      const [count, set] = useState(0);
+      setCount = set;
+      return h('span', null, `count:${count}`);
+    };
+    let load!: (p: Promise<void> | null) => void;
+    const List = () => {
+      const [pending, set] = useState<Promise<void> | null>(null);
+      load = set;
+      if (pending) throw pending;
+      return h('b', null, 'list');
+    };
+    const container = scratch();
+    render(h(Suspense, { fallback: 'loading' }, h(Counter, null), h(List, null)), container);
+    setCount(7);
+    await flush();
+
+    const d = deferred();
+    load(d.promise);
+    await flush();
+    expect(container.textContent).toBe('loading');
+
+    d.resolve();
+    // The component still throws its settled promise until it re-renders.
+    load(null);
+    await flush();
+    expect(container.textContent).toBe('count:7list');
+  });
+
+  it('keeps parked state when new children arrive and suspend again', async () => {
+    let setCount!: (n: number) => void;
+    const Counter = () => {
+      const [count, set] = useState(0);
+      setCount = set;
+      return h('span', null, `count:${count}`);
+    };
+    const { container, suspend } = setup((suspender) => [h(Counter, null), suspender]);
+    setCount(4);
+    await flush();
+
+    const resolve = await suspend();
+    // Re-render the boundary with new children while it is suspended.
+    const again = await suspend();
+    expect(container.textContent).toBe('loading');
+    await resolve();
+    await again();
+    expect(container.textContent).toBe('count:4ready');
+  });
+
+  it('unmounts cleanly while parked', async () => {
+    const log: Array<string> = [];
+    const Effects = () => {
+      useEffect(() => () => log.push('cleanup'), []);
+      return h('span', null, 'effects');
+    };
+    const { container, suspend } = setup((suspender) => [h(Effects, null), suspender]);
+    await flush(50);
+    const resolve = await suspend();
+    expect(log).toEqual(['cleanup']);
+
+    render(null, container);
+    await resolve();
+    expect(container.innerHTML).toBe('');
+    expect(log).toEqual(['cleanup']);
   });
 });
 
