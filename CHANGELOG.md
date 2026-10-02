@@ -1,5 +1,13 @@
 # preact-suspense
 
+## 0.3.2
+
+### Patch Changes
+
+- [`c8afbf5`](https://github.com/JoviDeCroock/preact-suspense/commit/c8afbf555c8190b0df5d4b8a33ae663c7d848a6e) Thanks [@JoviDeCroock](https://github.com/JoviDeCroock)! - Keep the state of mounted children when they suspend again. On Preact 11, the boundary parks the mounted subtree while the fallback shows, instead of unmounting it, and reveals it once the promises settle. Effects of parked components are cleaned up and run again when they are revealed.
+
+- [`c8afbf5`](https://github.com/JoviDeCroock/preact-suspense/commit/c8afbf555c8190b0df5d4b8a33ae663c7d848a6e) Thanks [@JoviDeCroock](https://github.com/JoviDeCroock)! - Throw failed `lazy()` loads to the nearest error boundary. A rejected loader used to keep the fallback visible, retry the rejected promise and cause unhandled rejections.
+
 ## 0.3.1
 
 ### Patch Changes
