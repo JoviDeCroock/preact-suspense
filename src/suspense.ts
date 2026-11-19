@@ -185,6 +185,11 @@ export class Suspense extends Component<SuspenseProps, SuspenseState> {
         c._unpark();
         c.setState({ suspended: false });
       }
+
+      // The server markup stayed up while hydrating, so the boundary renders
+      // the same children again and skips the unchanged ones in between, like
+      // the `<Card>` in `<Card><Data /></Card>`: render the child itself.
+      if (isHydrating && suspendingVNode.__c) suspendingVNode.__c.forceUpdate();
     };
 
     if (!c._pendingCount++ && !isHydrating) {
