@@ -1,4 +1,5 @@
 import { Component, options, createElement, Fragment, type VNode, type ComponentChildren } from 'preact';
+import { useId } from 'preact/hooks';
 
 // vnode.__u
 const FORCE_PROPS_REVALIDATE = 1 << 0;
@@ -15,6 +16,8 @@ interface InternalVNode extends VNode {
   __u?: number;
   __v?: InternalVNode | null;
   __h?: boolean;
+  // useId's counter
+  __m?: [string, number];
 }
 
 interface InternalComponent extends Component {
@@ -26,6 +29,8 @@ interface InternalComponent extends Component {
   __H?: { __: Array<any>; __h: Array<any> };
   // The parent DOM the parked subtree was rendered into.
   __O?: Element | null;
+  // useId's counter
+  __m?: [string, number];
 }
 
 interface SuspenseProps {
@@ -231,6 +236,11 @@ export class Suspense extends Component<SuspenseProps, SuspenseState> {
     const c = this as unknown as InternalComponent & Suspense;
     const { children, fallback } = c.props;
     const { suspended } = c.state;
+
+    // Ids inside a boundary come from its own counter, so they don't depend on
+    // when it resolves on the server or hydrates on the client. Older hooks
+    // look for the counter on the vnode, which is replaced on every render.
+    c.__v!.__m = c.__m || (c.__m = [useId(), 0]);
 
     if (c._detachOnNextRender) {
       // `__k` is not set yet when a parent re-renders the boundary. The

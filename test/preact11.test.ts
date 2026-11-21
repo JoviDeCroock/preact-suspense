@@ -76,6 +76,25 @@ describe('resumed hydration', () => {
     expect([...container.querySelectorAll('[id]')].map((el) => el.id)).toEqual(serverIds);
   });
 
+  it('gives ids inside a boundary the same value on a client that does not suspend', async () => {
+    let clientIds: string[] = [];
+    const Rec = () => {
+      const id = useId();
+      clientIds.push(id);
+      return h('i', { id });
+    };
+    const app = (Inner: any) =>
+      h('div', null, h(Rec, null), h(Suspense, { fallback: h('p', null, 'loading') }, h(Inner, null)), h(Rec, null));
+
+    // The server renders the boundary last, the client in tree order.
+    const container = scratch(await renderOnServer(app, Rec));
+    clientIds = [];
+    hydrate(app(Rec), container);
+    await flush();
+
+    expect(clientIds).toEqual([...container.querySelectorAll('i')].map((el) => el.id));
+  });
+
   it('attaches event listeners in resumed content', async () => {
     let clicks = 0;
     const Content = () => h('button', { onClick: () => clicks++ }, 'press');
