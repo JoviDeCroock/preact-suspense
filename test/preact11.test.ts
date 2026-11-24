@@ -121,6 +121,33 @@ describe('resumed hydration', () => {
     expect(container.querySelectorAll('b')).toHaveLength(1);
   });
 
+  it('resumes a child that suspended for data inside a wrapper', async () => {
+    let clicks = 0;
+    let ready = true;
+    const data = deferred();
+    const Data = () => {
+      if (!ready) throw data.promise;
+      return h('button', { onClick: () => clicks++ }, 'press');
+    };
+    const Card = ({ children }: any) => h('div', null, children);
+    const app = () => h(Suspense, { fallback: 'loading' }, h('h3', null, 'title'), h(Card, null, h(Data, null)));
+
+    const container = scratch(await renderToStringAsync(app()));
+    const serverButton = container.querySelector('button')!;
+
+    ready = false;
+    hydrate(app(), container);
+    await flush();
+
+    ready = true;
+    data.resolve();
+    await flush();
+
+    expect(container.querySelector('button')).toBe(serverButton);
+    serverButton.click();
+    expect(clicks).toBe(1);
+  });
+
   const unmountBeforeResume = async (stripMarkers: boolean) => {
     let setShow!: (v: boolean) => void;
     const Content = () => h('b', null, 'lazy');
