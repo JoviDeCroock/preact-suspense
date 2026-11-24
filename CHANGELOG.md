@@ -1,5 +1,13 @@
 # preact-suspense
 
+## 0.3.3
+
+### Patch Changes
+
+- [#8](https://github.com/JoviDeCroock/preact-suspense/pull/8) [`e7452c8`](https://github.com/JoviDeCroock/preact-suspense/commit/e7452c85798b9ff5dadc4d5531ea2e6309694bd3) Thanks [@JoviDeCroock](https://github.com/JoviDeCroock)! - Resume a component that suspended during hydration when another component wraps it. It used to keep the server markup without ever getting its event listeners.
+
+- [#9](https://github.com/JoviDeCroock/preact-suspense/pull/9) [`1f3552c`](https://github.com/JoviDeCroock/preact-suspense/commit/1f3552cc086c937f00d15e18b99ff12945cc4a9c) Thanks [@JoviDeCroock](https://github.com/JoviDeCroock)! - Give each `Suspense` boundary its own `useId` counter. Ids inside a boundary used to depend on when it resolved, so a boundary the server rendered last could hand its ids to siblings that came after it, and a client that didn't suspend while hydrating got different ids than the server. Ids inside a boundary now look like `PP0-1-0`.
+
 ## 0.3.2
 
 ### Patch Changes
